@@ -531,7 +531,7 @@ def get_summary(user_id: int) -> dict[str, Any]:
 def get_monthly_sales(user_id: int) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT strftime('%Y-%m', created_at) AS month, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? AND status = 'Delivered' GROUP BY strftime('%Y-%m', created_at) ORDER BY month DESC LIMIT 6",
+            "SELECT strftime('%Y-%m', created_at) AS month, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? GROUP BY strftime('%Y-%m', created_at) ORDER BY month DESC LIMIT 6",
             (user_id,),
         ).fetchall()
     return [dict(row) for row in reversed(rows)]
@@ -540,7 +540,7 @@ def get_monthly_sales(user_id: int) -> list[dict[str, Any]]:
 def get_best_sellers(user_id: int) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT item, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? AND status = 'Delivered' GROUP BY item ORDER BY quantity DESC LIMIT 5",
+            "SELECT item, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? GROUP BY item ORDER BY quantity DESC LIMIT 5",
             (user_id,),
         ).fetchall()
     return [dict(row) for row in rows]

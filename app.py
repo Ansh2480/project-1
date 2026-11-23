@@ -137,12 +137,12 @@ def show_overview(user_id: int) -> None:
     best_sellers = get_best_sellers(user_id)
     chart_left, chart_right = st.columns(2, gap="large")
     with chart_left:
-        st.subheader("Sales by month", icon=":material/bar_chart:")
+        st.subheader("Order value by month", icon=":material/bar_chart:")
         if monthly:
             st.bar_chart(
                 {"Month": [row["month"] for row in monthly],
-                 "Sales (₹)": [row["sales"] for row in monthly]},
-                x="Month", y="Sales (₹)", alt="Order value by month",
+                 "Order value (₹)": [row["sales"] for row in monthly]},
+                x="Month", y="Order value (₹)", alt="Value of orders placed by month",
             )
         else:
             st.caption("Your sales chart will grow as you add orders.")
@@ -153,7 +153,7 @@ def show_overview(user_id: int) -> None:
                 {"Product": [row["item"] for row in best_sellers],
                  "Quantity sold": [row["quantity"] for row in best_sellers]},
                 x="Product", y="Quantity sold", horizontal=True,
-                alt="Most ordered products by quantity",
+                alt="Most ordered products by quantity, including orders in progress",
             )
         else:
             st.caption("Your best sellers will appear as you record orders.")
