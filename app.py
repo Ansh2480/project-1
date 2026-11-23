@@ -60,12 +60,12 @@ def show_auth() -> None:
         if mode == "Create account":
             with st.form("signup_form"):
                 username = st.text_input("Username", max_chars=32)
-                password = st.text_input("Passphrase · 12 characters or more", type="password", max_chars=128)
-                confirm = st.text_input("Confirm passphrase", type="password", max_chars=128)
+                password = st.text_input("Password · 12 characters or more", type="password", max_chars=128)
+                confirm = st.text_input("Confirm password", type="password", max_chars=128)
                 submitted = st.form_submit_button("Create my account", width="stretch")
             if submitted:
                 if password != confirm:
-                    st.error("Those passphrases do not match.")
+                    st.error("Those passwords do not match.")
                 else:
                     ok, message = create_user(username, password)
                     if ok:
@@ -76,7 +76,7 @@ def show_auth() -> None:
         else:
             with st.form("login_form"):
                 username = st.text_input("Username", max_chars=32)
-                password = st.text_input("Passphrase", type="password", max_chars=128)
+                password = st.text_input("Password", type="password", max_chars=128)
                 submitted = st.form_submit_button("Sign in", width="stretch")
             if submitted:
                 user, message = authenticate(username, password)
@@ -91,8 +91,10 @@ def show_overview(user_id: int) -> None:
     summary = get_summary(user_id)
     orders = get_orders(user_id)
     visits = get_visits(user_id)
-    st.title("Namaste! Here’s your business at a glance", icon=":material/waving_hand:")
-    st.caption("A clear view of today’s work, payments and people to visit.")
+    st.title("Udyogini", icon=":material/local_florist:")
+    st.subheader("From your home to every doorstep.")
+    st.header("Namaste! Here’s your business at a glance", icon=":material/waving_hand:")
+    st.write("A clear view of today’s work, payments and people to visit.")
     top = st.container(border=True)
     with top:
         a, b, c, d = st.columns(4)
@@ -100,10 +102,6 @@ def show_overview(user_id: int) -> None:
         b.metric("Payments received", money(summary["paid"]))
         c.metric("Still to collect", money(summary["due"]))
         d.metric("Follow-ups due", summary["follow_ups_due"])
-
-    sample_count = sum(1 for item in get_customers(user_id) if item["is_sample"])
-    if sample_count:
-        st.info("You’re viewing fictional sample records. Add your own customers and products alongside them.", icon=":material/lightbulb:")
 
     left, right = st.columns([1.3, 1], gap="large")
     with left:
@@ -307,12 +305,8 @@ def show_orders(user_id: int) -> None:
         return
     with st.expander("Record an order", icon=":material/add_shopping_cart:", expanded=False):
         with st.form("order_form", clear_on_submit=True):
-            customer_options = {f"{c['name']} · {c['area']}": c for c in customers}
-            customer_label = st.selectbox("Customer", list(customer_options))
-            customer = customer_options[customer_label]
-            product_options = {f"{p['name']} · {money(p['price'])} · stock {p['stock']}": p for p in products}
-            product_label = st.selectbox("Product", list(product_options))
-            product = product_options[product_label]
+            customer = st.selectbox("Customer", customers, format_func=lambda c: f"{c['name']} · {c['area']}")
+            product = st.selectbox("Product", products, format_func=lambda p: f"{p['name']} · {money(p['price'])} · stock {p['stock']}")
             c1, c2 = st.columns(2)
             quantity = c1.number_input("Quantity", min_value=0.1, value=1.0, step=1.0)
             paid = c2.number_input("Paid now (₹)", min_value=0.0, value=0.0, step=10.0)
@@ -389,9 +383,7 @@ def show_visits(user_id: int) -> None:
         return
     with st.expander("Log a visit or follow-up", icon=":material/event:", expanded=False):
         with st.form("visit_form", clear_on_submit=True):
-            customer_options = {f"{c['name']} · {c['area']}": c for c in customers}
-            customer_label = st.selectbox("Customer", list(customer_options))
-            customer = customer_options[customer_label]
+            customer = st.selectbox("Customer", customers, format_func=lambda c: f"{c['name']} · {c['area']}")
             visit_date = st.date_input("Visit date", value=date.today())
             outcome = st.selectbox("What happened?", ["Interested", "Order placed", "Not home", "Not interested", "Follow up"])
             follow_up = st.date_input("Next visit (optional)", value=None)

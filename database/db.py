@@ -154,7 +154,7 @@ def create_user(username: str, password: str) -> tuple[bool, str]:
     if not 3 <= len(username) <= 32 or not username.replace("_", "").isalnum():
         return False, "Choose a username of 3–32 letters, numbers, or underscores."
     if len(password) < 12:
-        return False, "Use a passphrase with at least 12 characters."
+        return False, "Use a password with at least 12 characters."
     salt = secrets.token_bytes(16)
     digest = _password_digest(password, salt)
     try:
@@ -262,7 +262,7 @@ def authenticate(username: str, password: str) -> tuple[dict[str, Any] | None, s
         if user is None:
             # Keep the unknown-user path computationally similar to a failed login.
             _password_digest(password, b"udyogini-fixed-salt")
-            return None, "Username or passphrase is incorrect."
+            return None, "Username or password is incorrect."
         if user["locked_until"] > now:
             return None, "Too many attempts. Please wait a few minutes and try again."
         salt = bytes.fromhex(user["password_salt"])
@@ -275,7 +275,7 @@ def authenticate(username: str, password: str) -> tuple[dict[str, Any] | None, s
                 "UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
                 (0 if locked_until else failed, locked_until, user["id"]),
             )
-            return None, "Username or passphrase is incorrect."
+            return None, "Username or password is incorrect."
         conn.execute(
             "UPDATE users SET failed_attempts = 0, locked_until = 0 WHERE id = ?",
             (user["id"],),
