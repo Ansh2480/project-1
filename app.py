@@ -13,7 +13,6 @@ from database.db import (
     clear_sample_data,
     complete_follow_up,
     create_user,
-    ensure_samples_seeded,
     get_customers,
     get_expenses,
     get_best_sellers,
@@ -502,7 +501,6 @@ if "user" not in st.session_state:
     show_auth()
 else:
     user = st.session_state.user
-    ensure_samples_seeded(user["id"])
     with st.sidebar:
         st.title("Udyogini", anchor=False)
         st.caption("A companion for your home business")
