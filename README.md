@@ -14,12 +14,12 @@ Udyogini provides a lightweight digital notebook to help sellers keep those ever
 
 | Module | What it does |
 | --- | --- |
-| Overview | Shows sales, payments received, balances due, follow-ups, recent orders, monthly sales, and popular products. |
+| Overview | Shows delivered sales, payments received, balances due, follow-ups, recent orders, monthly sales, and popular products. |
 | Customers | Stores customer contact details and notes, filters customers by locality, and lets sellers edit records. |
 | Products | Tracks product prices, costs, stock, stock adjustments, and low-stock reminders. |
 | Orders and payments | Records orders against available stock, tracks delivery status and partial payments, and keeps payment history. |
 | Visits and follow-ups | Logs visit outcomes, schedules another visit, and lets sellers mark follow-ups complete. |
-| Income and expenses | Records business expenses and calculates an estimated profit. |
+| Income and expenses | Records business expenses and estimates profit from delivered sales minus product costs and operating expenses. Ingredient costs are included in product costs to avoid counting them twice. |
 | Reports and catalogue | Downloads order reports and a customer-facing product catalogue as CSV files. |
 
 ## Sample data

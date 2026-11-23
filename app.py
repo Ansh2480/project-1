@@ -98,7 +98,7 @@ def show_overview(user_id: int) -> None:
     top = st.container(border=True)
     with top:
         a, b, c, d = st.columns(4)
-        a.metric("Sales on the books", money(summary["sales"]))
+        a.metric("Delivered sales", money(summary["sales"]))
         b.metric("Payments received", money(summary["paid"]))
         c.metric("Still to collect", money(summary["due"]))
         d.metric("Follow-ups due", summary["follow_ups_due"])
@@ -428,10 +428,10 @@ def show_finances(user_id: int) -> None:
     st.caption("See money collected, ingredient costs and what remains after expenses.")
     summary = get_summary(user_id)
     a, b, c = st.columns(3)
-    a.metric("Sales value", money(summary["sales"]))
+    a.metric("Delivered sales", money(summary["sales"]))
     b.metric("Business expenses", money(summary["expenses"]))
     c.metric("Estimated net profit", money(summary["net_profit"]))
-    st.caption("Estimated profit = order value − product costs − recorded expenses. Add accurate costs for a useful estimate.")
+    st.caption("Estimated profit = delivered order value − product costs for delivered orders − recorded business expenses. Ingredient costs belong in product cost so they are not counted twice.")
     with st.expander("Add a business expense", icon=":material/add_card:", expanded=False):
         with st.form("expense_form", clear_on_submit=True):
             label = st.text_input("What was it for?", max_chars=100)

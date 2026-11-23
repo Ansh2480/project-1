@@ -44,6 +44,7 @@ def init_db() -> None:
                 failed_attempts INTEGER NOT NULL DEFAULT 0,
                 locked_until REAL NOT NULL DEFAULT 0,
                 samples_seeded INTEGER NOT NULL DEFAULT 0,
+                sample_finance_migrated INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS customers (
@@ -124,6 +125,8 @@ def init_db() -> None:
         user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
         if "samples_seeded" not in user_columns:
             conn.execute("ALTER TABLE users ADD COLUMN samples_seeded INTEGER NOT NULL DEFAULT 0")
+        if "sample_finance_migrated" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN sample_finance_migrated INTEGER NOT NULL DEFAULT 0")
         order_columns = {row["name"] for row in conn.execute("PRAGMA table_info(orders)")}
         for column, definition in {
             "product_id": "INTEGER",
@@ -164,7 +167,10 @@ def create_user(username: str, password: str) -> tuple[bool, str]:
                 (username, digest.hex(), salt.hex()),
             )
             _seed_samples(conn, cursor.lastrowid)
-            conn.execute("UPDATE users SET samples_seeded = 1 WHERE id = ?", (cursor.lastrowid,))
+            conn.execute(
+                "UPDATE users SET samples_seeded = 1, sample_finance_migrated = 1 WHERE id = ?",
+                (cursor.lastrowid,),
+            )
         return True, "Account created. You can sign in now."
     except sqlite3.IntegrityError:
         return False, "That username is already in use."
@@ -204,15 +210,15 @@ def _seed_samples(conn: sqlite3.Connection, user_id: int) -> None:
         product_ids.append(cur.lastrowid)
     today = time.strftime("%Y-%m-%d")
     order_samples = [
-        (ids[0], product_ids[0], "Besan laddoo", 2, 240, 480, 200),
-        (ids[1], product_ids[1], "Mango pickle", 1, 180, 105, 0),
-        (ids[3], product_ids[2], "Roasted papad", 3, 120, 204, 150),
-        (ids[6], product_ids[3], "Coconut chutney", 2, 90, 48, 180),
+        (ids[0], product_ids[0], "Besan laddoo", 2, 240, 145, 200, "Delivered"),
+        (ids[1], product_ids[1], "Mango pickle", 1, 180, 105, 0, "Delivered"),
+        (ids[3], product_ids[2], "Roasted papad", 3, 120, 68, 150, "Preparing"),
+        (ids[6], product_ids[3], "Coconut chutney", 2, 90, 48, 180, "Preparing"),
     ]
-    for customer_id, product_id, item, quantity, price, cost, paid in order_samples:
+    for customer_id, product_id, item, quantity, price, cost, paid, status in order_samples:
         cur = conn.execute(
-            "INSERT INTO orders (user_id, customer_id, item, quantity, unit_price, amount_paid, status, due_date, product_id, unit_cost, is_sample) VALUES (?, ?, ?, ?, ?, ?, 'Preparing', ?, ?, ?, 1)",
-            (user_id, customer_id, item, quantity, price, paid, today, product_id, cost),
+            "INSERT INTO orders (user_id, customer_id, item, quantity, unit_price, amount_paid, status, due_date, product_id, unit_cost, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+            (user_id, customer_id, item, quantity, price, paid, status, today, product_id, cost),
         )
         if paid:
             conn.execute(
@@ -235,8 +241,7 @@ def _seed_samples(conn: sqlite3.Connection, user_id: int) -> None:
             (user_id, customer_id, today, outcome, follow_up, notes),
         )
     for label, category, amount in [
-        ("Ingredients", "Materials", 620),
-        ("Paper pouches", "Packaging", 180),
+        ("Paper pouches", "Packaging", 120),
         ("Local travel", "Travel", 90),
     ]:
         conn.execute(
@@ -247,10 +252,37 @@ def _seed_samples(conn: sqlite3.Connection, user_id: int) -> None:
 
 def ensure_samples_seeded(user_id: int) -> None:
     with connect() as conn:
-        row = conn.execute("SELECT samples_seeded FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT samples_seeded, sample_finance_migrated FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
         if row and not row["samples_seeded"]:
             _seed_samples(conn, user_id)
             conn.execute("UPDATE users SET samples_seeded = 1 WHERE id = ?", (user_id,))
+        if row and not row["sample_finance_migrated"]:
+            conn.execute(
+                """UPDATE orders
+                   SET unit_cost = COALESCE((SELECT products.cost FROM products
+                                             WHERE products.id = orders.product_id
+                                               AND products.user_id = orders.user_id), unit_cost)
+                   WHERE user_id = ? AND is_sample = 1 AND product_id IS NOT NULL""",
+                (user_id,),
+            )
+            conn.execute(
+                "UPDATE orders SET status = CASE WHEN item IN ('Besan laddoo', 'Mango pickle') THEN 'Delivered' ELSE 'Preparing' END WHERE user_id = ? AND is_sample = 1",
+                (user_id,),
+            )
+            conn.execute(
+                "DELETE FROM expenses WHERE user_id = ? AND is_sample = 1 AND label = 'Ingredients'",
+                (user_id,),
+            )
+            conn.execute(
+                "UPDATE expenses SET amount = 120 WHERE user_id = ? AND is_sample = 1 AND label = 'Paper pouches'",
+                (user_id,),
+            )
+            conn.execute(
+                "UPDATE users SET sample_finance_migrated = 1 WHERE id = ?", (user_id,)
+            )
 
 
 def authenticate(username: str, password: str) -> tuple[dict[str, Any] | None, str]:
@@ -475,8 +507,8 @@ def get_expenses(user_id: int) -> list[sqlite3.Row]:
 def get_summary(user_id: int) -> dict[str, Any]:
     with connect() as conn:
         totals = conn.execute(
-            """SELECT COALESCE(SUM(o.quantity * o.unit_price), 0) AS sales,
-                      COALESCE(SUM(o.quantity * o.unit_cost), 0) AS cost,
+            """SELECT COALESCE(SUM(CASE WHEN o.status = 'Delivered' THEN o.quantity * o.unit_price ELSE 0 END), 0) AS sales,
+                      COALESCE(SUM(CASE WHEN o.status = 'Delivered' THEN o.quantity * o.unit_cost ELSE 0 END), 0) AS cost,
                       COALESCE(SUM(o.quantity * o.unit_price - o.amount_paid), 0) AS due,
                       COUNT(*) AS order_count
                FROM orders o WHERE o.user_id = ?""", (user_id,)
@@ -499,7 +531,7 @@ def get_summary(user_id: int) -> dict[str, Any]:
 def get_monthly_sales(user_id: int) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT strftime('%Y-%m', created_at) AS month, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? GROUP BY strftime('%Y-%m', created_at) ORDER BY month DESC LIMIT 6",
+            "SELECT strftime('%Y-%m', created_at) AS month, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? AND status = 'Delivered' GROUP BY strftime('%Y-%m', created_at) ORDER BY month DESC LIMIT 6",
             (user_id,),
         ).fetchall()
     return [dict(row) for row in reversed(rows)]
@@ -508,7 +540,7 @@ def get_monthly_sales(user_id: int) -> list[dict[str, Any]]:
 def get_best_sellers(user_id: int) -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT item, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? GROUP BY item ORDER BY quantity DESC LIMIT 5",
+            "SELECT item, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS sales FROM orders WHERE user_id = ? AND status = 'Delivered' GROUP BY item ORDER BY quantity DESC LIMIT 5",
             (user_id,),
         ).fetchall()
     return [dict(row) for row in rows]
