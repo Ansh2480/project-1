@@ -305,8 +305,12 @@ def show_orders(user_id: int) -> None:
         return
     with st.expander("Record an order", icon=":material/add_shopping_cart:", expanded=False):
         with st.form("order_form", clear_on_submit=True):
-            customer = st.selectbox("Customer", customers, format_func=lambda c: f"{c['name']} · {c['area']}")
-            product = st.selectbox("Product", products, format_func=lambda p: f"{p['name']} · {money(p['price'])} · stock {p['stock']}")
+            customer_options = {f"{c['name']} · {c['area']} · #{c['id']}": c for c in customers}
+            customer_label = st.selectbox("Customer", list(customer_options))
+            customer = customer_options[customer_label]
+            product_options = {f"{p['name']} · {money(p['price'])} · stock {p['stock']} · #{p['id']}": p for p in products}
+            product_label = st.selectbox("Product", list(product_options))
+            product = product_options[product_label]
             c1, c2 = st.columns(2)
             quantity = c1.number_input("Quantity", min_value=0.1, value=1.0, step=1.0)
             paid = c2.number_input("Paid now (₹)", min_value=0.0, value=0.0, step=10.0)
@@ -383,7 +387,9 @@ def show_visits(user_id: int) -> None:
         return
     with st.expander("Log a visit or follow-up", icon=":material/event:", expanded=False):
         with st.form("visit_form", clear_on_submit=True):
-            customer = st.selectbox("Customer", customers, format_func=lambda c: f"{c['name']} · {c['area']}")
+            customer_options = {f"{c['name']} · {c['area']} · #{c['id']}": c for c in customers}
+            customer_label = st.selectbox("Customer", list(customer_options))
+            customer = customer_options[customer_label]
             visit_date = st.date_input("Visit date", value=date.today())
             outcome = st.selectbox("What happened?", ["Interested", "Order placed", "Not home", "Not interested", "Follow up"])
             follow_up = st.date_input("Next visit (optional)", value=None)
